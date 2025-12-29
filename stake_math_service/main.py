@@ -43,11 +43,27 @@ app.add_middleware(
 
 
 def repo_math_sdk_dir() -> Path:
-    # monorepo path: <repo>/packages/math-sdk
+    """
+    Locate math-sdk root.
+
+    - In monorepo dev: <repo>/packages/math-sdk
+    - In Render Docker (service-only build context): math-sdk is installed via pip and exposes a top-level `games/` package.
+    """
     p = settings.repo_root / "packages" / "math-sdk"
-    if not p.exists():
-        raise RuntimeError(f"Cannot locate math-sdk at {p}")
-    return p
+    if p.exists():
+        return p
+
+    try:
+        import games as games_pkg  # type: ignore
+
+        games_dir = Path(games_pkg.__file__).resolve().parent  # .../site-packages/games
+        root = games_dir.parent  # .../site-packages
+        if (games_dir / "template").exists():
+            return root
+    except Exception:
+        pass
+
+    raise RuntimeError("Cannot locate math-sdk (neither monorepo packages/math-sdk nor installed games/template).")
 
 
 class CreateWorkspaceResponse(BaseModel):

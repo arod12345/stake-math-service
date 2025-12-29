@@ -1,14 +1,19 @@
 FROM python:3.12-slim
 
-WORKDIR /app
+# Needed for `pip install git+...`
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends git ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
-# Copy only what we need for installation/runtime
-COPY packages/math-sdk ./packages/math-sdk
-COPY packages/stake-math-service ./packages/stake-math-service
+WORKDIR /app/service
 
-RUN pip install --no-cache-dir -r packages/stake-math-service/requirements.txt \
-  && pip install --no-cache-dir -e packages/math-sdk \
-  && pip install --no-cache-dir -e packages/stake-math-service
+# Build context should be `packages/stake-math-service/` on Render
+COPY . .
+
+# Install service deps + math-sdk from upstream Git (avoids needing monorepo context)
+RUN pip install --no-cache-dir -r requirements.txt \
+  && pip install --no-cache-dir "git+https://github.com/StakeEngine/math-sdk.git@0842bb244cb8c15e63af541054710a8082901e2f#egg=stakeengine" \
+  && pip install --no-cache-dir -e .
 
 ENV STAKE_MATH_WORKSPACES_DIR=/data/workspaces
 VOLUME ["/data/workspaces"]
